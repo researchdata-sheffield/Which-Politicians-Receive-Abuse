@@ -9,6 +9,7 @@ library(circlepackeR)
 library(data.tree)
 library(treemap)
 library(ggrepel)
+library(plotly)
 
 ##### Process string/numeric to date #####
 stringToDate <- function(targetString) {
@@ -179,6 +180,54 @@ ggplot(campaignPeriodDonut, aes(ymax=ymax, ymin=ymin, xmax=4, xmin=3, fill=gende
   xlim(c(0.5, 4)) +
   theme_void() +
   theme(legend.position = "none")
+
+
+#################################
+########## time series ########## 
+#################################
+
+campaignTimeSeries <- campaignPeriodData %>% 
+  group_by(startTime, party) %>%
+  summarise(replyToAbusive = sum(replyToAbusive)) 
+
+topParties <- campaignTimeSeries %>% 
+  group_by(party) %>%
+  summarise(count = sum(replyToAbusive)) %>%
+  arrange(desc(count)) %>%
+  head(5)
+
+campaignTimeSeries <- campaignTimeSeries %>% 
+  filter(party %in% topParties$party)
+
+campaignTimeSeries$fill <- ifelse(
+  campaignTimeSeries$party == "Conservative Party", "#0087DC", 
+  ifelse(campaignTimeSeries$party == "Labour Party", "#DC241f", 
+    ifelse(campaignTimeSeries$party == "Liberal Democrats", "#FDBB30",
+      ifelse(campaignTimeSeries$party == "Scottish National Party", "#FFFF00",
+        ifelse(campaignTimeSeries$party == "Democratic Unionist Party", "#D46A4C",  
+          "#cccccc"
+        )
+      )
+    )
+  )
+)
+
+campaignTimeSeries %>% 
+  ungroup() %>%
+  plot_ly(x = ~ startTime) %>% 
+  add_lines(
+    y = ~ replyToAbusive, 
+    color = ~ factor(party),
+    colors = fill
+  ) %>%
+  layout(
+    xaxis = list(
+      title = "Date"
+    ), 
+    yaxis = list(
+      title = "Number of abusive tweets"
+    ))
+
 
 
 
