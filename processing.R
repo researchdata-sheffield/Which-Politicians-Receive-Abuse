@@ -1,6 +1,6 @@
 library(tidyverse)
 library(lubridate)
-
+library(highcharter)
 # Install devtools in order to install circlepackR
 ## install.packages("devtools")
 # For windows, also install Rtools: https://cran.r-project.org/bin/windows/Rtools/
@@ -10,6 +10,7 @@ library(data.tree)
 library(treemap)
 library(ggrepel)
 library(plotly)
+
 
 ##### Process string/numeric to date #####
 stringToDate <- function(targetString) {
@@ -197,38 +198,128 @@ topParties <- campaignTimeSeries %>%
   head(5)
 
 campaignTimeSeries <- campaignTimeSeries %>% 
-  filter(party %in% topParties$party)
-
-campaignTimeSeries$fill <- ifelse(
-  campaignTimeSeries$party == "Conservative Party", "#0087DC", 
-  ifelse(campaignTimeSeries$party == "Labour Party", "#DC241f", 
-    ifelse(campaignTimeSeries$party == "Liberal Democrats", "#FDBB30",
-      ifelse(campaignTimeSeries$party == "Scottish National Party", "#FFFF00",
-        ifelse(campaignTimeSeries$party == "Democratic Unionist Party", "#D46A4C",  
-          "#cccccc"
-        )
-      )
+  filter(party %in% topParties$party) %>%
+  mutate(
+    fill = case_when(
+      party == "Conservative Party" ~ "#0087DC",
+      party == "Labour Party" ~ "#DC241f",
+      party == "Liberal Democrats" ~ "#FDBB30",
+      party == "Scottish National Party" ~ "#FFFF00",
+      party == "Independent" ~ "#DDDDDD",
+      party == "Democratic Unionist Party" ~ "#D46A4C",
+      party == "The Brexit Party" ~ "#12B6CF",
+      TRUE ~ "#cccccc",
     )
   )
-)
 
+timeSeriesColours <- campaignTimeSeries %>% 
+  group_by(party) %>%
+  summarise(count = sum(replyToAbusive), fill = first(fill)) %>%
+  arrange(desc(count))
+
+# sort parties for each date
+campaignTimeSeries <- campaignTimeSeries[
+  order(
+    campaignTimeSeries$startTime, 
+    match(campaignTimeSeries$party, topParties$party)
+  ),
+]
+
+
+# plotly
 campaignTimeSeries %>% 
   ungroup() %>%
   plot_ly(x = ~ startTime) %>% 
   add_lines(
     y = ~ replyToAbusive, 
-    color = ~ factor(party),
-    colors = fill
+    color = ~ factor(party)
   ) %>%
   layout(
     xaxis = list(
       title = "Date"
     ), 
     yaxis = list(
-      title = "Number of abusive tweets"
+      title = "Number of abusive tweets received"
     ))
 
+# highcharter
+hchartTS <- campaignTimeSeries %>%
+  hchart(
+    type = "line",
+    hcaes(x = startTime, y = replyToAbusive, group = factor(party)),
+    marker=list(symbol='circle', radius=2)
+  ) %>%
+  hc_xAxis(
+    title = list(text = "Date")
+  ) %>%
+  hc_yAxis(
+    title = list(text = "Number of abusive tweets received")
+  )
 
+for (row in 1:nrow(timeSeriesColours)) {
+  hchartTS <- hchartTS %>% 
+    hc_add_series(campaignTimeSeries, type="line", color=timeSeriesColours[row,]$fill, zIndex=0)
+}
+
+
+
+
+
+hchartTS <- highchart() %>%
+  hc_xAxis(
+    title = list(text = "Date"),
+    dateTimeLabelFormats = list(day = '%d %b'), 
+    type = "datetime",
+    plotLines = list(
+      list(
+        label = list(text = "TV Event (ITV)"),
+        color = "#E8E8E8",
+        width = 1,
+        value = datetime_to_timestamp(as.Date("2019-11-19"))
+      ),
+      list(
+        label = list(text = "TV Event (BBC)"),
+        color = "#E8E8E8",
+        width = 1,
+        value = datetime_to_timestamp(as.Date("2019-11-22"))
+      ),
+      list(
+        label = list(text = "TV Event (Channel 4)"),
+        color = "#E8E8E8",
+        width = 1,
+        value = datetime_to_timestamp(as.Date("2019-11-28"))
+      ),
+      list(
+        label = list(text = "TV Event (BBC)"),
+        color = "#E8E8E8",
+        width = 1,
+        value = datetime_to_timestamp(as.Date("2019-12-06"))
+      ),
+      list(
+        label = list(text = "Election"),
+        color = "#E8E8E8",
+        width = 1.5,
+        value = datetime_to_timestamp(as.Date("2019-12-12"))
+      )
+    )
+  ) %>%
+  hc_yAxis(
+    title = list(text = "Number of abusive tweets received")
+  )
+
+for (row in 1:nrow(timeSeriesColours)) {
+  hchartTS <- hchartTS %>% 
+    hc_add_series(
+      data = campaignTimeSeries %>% filter(party == timeSeriesColours[row,]$party), 
+      type="line", 
+      hcaes(x = startTime, y = replyToAbusive),
+      marker = list(symbol='circle', radius=1),
+      name = timeSeriesColours[row,]$party, 
+      color = timeSeriesColours[row,]$fill 
+    )
+}
+
+hchartTS
 
 
 # campaignPeriodDataAnimation <- campaignPeriodData %>%

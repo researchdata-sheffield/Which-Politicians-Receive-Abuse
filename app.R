@@ -1,8 +1,14 @@
 library(shiny)
-library(tidyverse)
-library(lubridate)
-library(plotly)
 library(shinythemes)
 
 
-source('./processing.R')
+source('processing.R')
+source('server.R')
+source('ui.R')
+
+
+##################################
+##### Call shinyApp function #####
+##################################
+shinyApp(ui = appUI, server = appServer)
+
