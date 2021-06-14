@@ -2,7 +2,9 @@ appServer <- function(input, output, session) {
   #######################################
   ########### Global Reactive ###########
   #######################################
-  filteredData <- reactive({
+  filterBeforeDebounce <- reactive({
+    req(input$dateRange)
+    
     data <- originData %>%
       filter(
         between(
@@ -24,9 +26,11 @@ appServer <- function(input, output, session) {
     data
   })
   
-  
-  makeCircularChart() <- reactive({
-    # 
+  filteredData <- debounce(filterBeforeDebounce, 2000)
+
+  # Make circular chart -------------------------
+  makeCircularChart <- reactive({
+    # prepare data
     campaignPeriodCircular = filteredData() %>% 
       group_by(name) %>% 
       summarise(startTime = first(startTime), 
@@ -36,15 +40,18 @@ appServer <- function(input, output, session) {
       ) %>% 
       mutate(abuseTotal = abuseSexist + abuseRacist + abusePolitical)
     
+    # get top 20 or less MP
     mpNumber = nrow(campaignPeriodCircular)
+    mpNumber = ifelse(mpNumber >= 20, 20, mpNumber)
     
     campaignPeriodCircular = campaignPeriodCircular %>%
       arrange(desc(abuseTotal)) %>%
-      head(ifelse(mpNumber >= 20, 20, mpNumber)) %>%
+      head(mpNumber) %>%
       rowwise() %>%
       mutate(abuseTotal = log(abuseTotal, 1.01)) %>%
       arrange(name)
     
+    # Apply party colours
     campaignPeriodCircular = campaignPeriodCircular %>%
       mutate(
         fill = case_when(
@@ -55,13 +62,119 @@ appServer <- function(input, output, session) {
           party == "Independent" ~ "#DDDDDD",
           party == "Democratic Unionist Party" ~ "#D46A4C",
           party == "The Brexit Party" ~ "#12B6CF",
+          party == "Sinn F\\u00e9in" ~ "#326760",
           TRUE ~ "#cccccc"
         )
       )
     
     # adapted from https://www.r-graph-gallery.com/296-add-labels-to-circular-barplot.html
+    
+    campaignPeriodCircular$id = seq(1, mpNumber)
+    angle =  90 - 360 * (campaignPeriodCircular$id - 0.5) / mpNumber
+    
+    # calculate the alignment of labels: right or left
+    campaignPeriodCircular$hjust = ifelse( angle < -90, 1, 0)
+    
+    # flip angle BY to make them readable
+    campaignPeriodCircular$angle = ifelse(angle < -90, angle + 180, angle)
+
+    # set y limits
+    yMax = max(campaignPeriodCircular$abuseTotal) + 200
+    yMin = -1 * yMax + 200
+    
+    p = ggplot(campaignPeriodCircular, aes(x = as.factor(id), y = abuseTotal)) +
+      geom_bar(stat="identity", fill=campaignPeriodCircular$fill) +
+      ylim(yMin,yMax) +
+      theme_minimal() +
+      theme(
+        axis.text = element_blank(),
+        axis.title = element_blank(),
+        panel.grid = element_blank(),
+        plot.margin = unit(c(1,-1,1,-1), "cm") ,
+        plot.title = element_text(hjust = 0.5),
+        plot.subtitle = element_text(hjust = 0.5),
+      ) +
+      coord_polar(start = 0) +
+      geom_text(data=campaignPeriodCircular, 
+                aes(x = id, y= abuseTotal + 70, label = name, hjust = hjust), 
+                color="black", 
+                fontface="bold",
+                alpha=0.6, 
+                size=2.8, 
+                angle = campaignPeriodCircular$angle, 
+                inherit.aes = FALSE ) + 
+      labs(
+        title = paste0(
+          "Top ", 
+          mpNumber, 
+          " MP by total number of abuse reply received (calculated from these categories: Sexist, Political, and Racist)"
+        )
+      )
+    
+    return(p)
   })
   
+  
+  # Make circle chart -----------------------------------
+  makeCircleChart <- reactive({
+    campaignPeriodCircle = filteredData() %>% 
+      group_by(name) %>% 
+      summarise(startTime = first(startTime), 
+                endTime = last(endTime), 
+                across(where(is.character), ~first(.x)),
+                across(where(is.numeric), ~sum(.x))
+      ) %>% 
+      mutate(abuseTotal = abuseSexist + abuseRacist + abusePolitical)
+    
+    if(count(campaignPeriodCircle) > 1000) {
+      campaignPeriodCircle = campaignPeriodCircle %>% filter(replyToAbusive > 400)
+    }
+    
+    # appened path
+    campaignPeriodCircle$pathString = paste("MP", 
+                                            campaignPeriodCircle$party,
+                                            campaignPeriodCircle$name,
+                                            sep = "/")
+    
+    nodes = as.Node(campaignPeriodCircle)
+    p = circlepackeR(nodes, size = "replyToAbusive", width = "500px", height = "500px")
+    return(p)
+  })
+  
+  
+  # Make donut chart ------------------------------------
+  makeDonutChart <- reactive({
+    campaignPeriodDonut = filteredData() %>%
+      select(name, gender) %>%
+      replace(is.na(.), "unknown") %>%
+      distinct() %>%
+      group_by(gender) %>%
+      summarise(count = n())
+    
+    campaignPeriodDonut$fraction = campaignPeriodDonut$count / sum(campaignPeriodDonut$count)
+    
+    # Compute the cumulative percentages (top of each rectangle)
+    campaignPeriodDonut$ymax <- cumsum(campaignPeriodDonut$fraction)
+    campaignPeriodDonut$ymin <- c(0, head(campaignPeriodDonut$ymax, n=-1))
+    
+    campaignPeriodDonut$labelPosition <- (campaignPeriodDonut$ymax + campaignPeriodDonut$ymin) / 2
+    campaignPeriodDonut$label <- paste0(campaignPeriodDonut$gender, ": ", campaignPeriodDonut$count)
+    
+    
+    p = ggplot(campaignPeriodDonut, aes(ymax=ymax, ymin=ymin, xmax=4, xmin=3, fill=gender)) +
+      geom_rect() +
+      geom_label_repel( x=3.5, aes(y=labelPosition, label=label), size=5) +
+      scale_fill_brewer(palette=4) +
+      coord_polar(theta="y") +
+      xlim(c(0.5, 4)) +
+      theme_void() +
+      theme(legend.position = "none")
+    
+    return(p)
+  })
+  
+  
+  # Make time series ------------------------------------
   makeTimeSeries <- reactive({
     campaignTimeSeries = filteredData() %>%
       group_by(startTime, party) %>%
@@ -75,6 +188,7 @@ appServer <- function(input, output, session) {
           party == "Independent" ~ "#DDDDDD",
           party == "Democratic Unionist Party" ~ "#D46A4C",
           party == "The Brexit Party" ~ "#12B6CF",
+          party == "Sinn F\\u00e9in" ~ "#326760",
           TRUE ~ "#cccccc"
         )
       )
@@ -189,5 +303,17 @@ appServer <- function(input, output, session) {
   ####### Time Series #######
   output$timeSeries <- renderHighchart({
     makeTimeSeries()
+  })
+  
+  output$circularPlot <- renderPlot({
+    makeCircularChart()
+  })
+
+  output$circlePlot <- renderCirclepackeR({
+    makeCircleChart()
+  })
+  
+  output$donutPlot <- renderPlot({
+    makeDonutChart()
   })
 }

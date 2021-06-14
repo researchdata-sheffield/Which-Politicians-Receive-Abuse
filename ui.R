@@ -70,14 +70,16 @@ body <- dashboardBody(
   ),
   fluidRow(
     column(
-      width = 6,
-      plotOutput(outputId = "circularPlot", height = "400px")
+      width = 7,
+      plotOutput(outputId = "circularPlot", height = "700px")
     ),
     column(
-      width = 6,
-      plotOutput(outputId = "circlePlot", height = "200px"),
+      width = 5,
       plotOutput(outputId = "donutPlot", height = "200px")
     )
+  ),
+  fluidRow(
+    circlepackeROutput(outputId = "circlePlot", height = "500px", width = "100%")
   )
 )
 
