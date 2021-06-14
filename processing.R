@@ -9,7 +9,10 @@ library(circlepackeR)
 library(data.tree)
 library(treemap)
 library(ggrepel)
-library(plotly)
+library(shiny)
+library(shinythemes)
+library(shinydashboard)
+library(leaflet)
 
 
 ##### Process string/numeric to date #####
@@ -33,18 +36,24 @@ stringToDate <- function(targetString) {
 # Read data
 # replyTo = replies received
 # replyToAbusive = abusive tweets received
-campaignPeriodData <- read_csv(
+originData <- read_csv(
   "https://figshare.shef.ac.uk/ndownloader/files/22749029")
 
 # Transform date
-campaignPeriodData <- campaignPeriodData %>% 
+originData <- originData %>% 
   rowwise() %>% 
   mutate(startTime = stringToDate(startTime)) %>%
-  mutate(endTime = stringToDate(endTime)) 
+  mutate(endTime = stringToDate(endTime)) %>%
+  replace(is.na(.), "unknown")
 
-# %>% mutate(abuseTotal = abuseSexist + abuseRacist + abusePolitical)
-  
-campaignPeriodData
+campaignPeriodData <- originData
+
+### data for options ###
+partyOptions <- pull(distinct(originData, party))
+genderOptions <- pull(distinct(originData, gender))
+ 
+
+
 
 campaignPeriodDataCircle <- campaignPeriodData %>% 
   group_by(name) %>% 
@@ -84,10 +93,12 @@ campaignPeriodDataCircular <- campaignPeriodData %>%
             across(where(is.numeric), ~sum(.x))
   ) %>% 
   mutate(abuseTotal = abuseSexist + abuseRacist + abusePolitical)
-  
+
+mpNumber <- nrow(campaignPeriodDataCircular)
+
 campaignPeriodDataCircular <- campaignPeriodDataCircular %>%
   arrange(desc(abuseTotal)) %>%
-  head(30) %>%
+  head(ifelse(mpNumber >= 20, 20, mpNumber)) %>%
   rowwise() %>%
   mutate(abuseTotal = log(abuseTotal, 1.01)) %>%
   arrange(name)
@@ -170,7 +181,7 @@ campaignPeriodDonut$ymax <- cumsum(campaignPeriodDonut$fraction)
 campaignPeriodDonut$ymin <- c(0, head(campaignPeriodDonut$ymax, n=-1))
 
 campaignPeriodDonut$labelPosition <- (campaignPeriodDonut$ymax + campaignPeriodDonut$ymin) / 2
-campaignPeriodDonut$label <- paste0(campaignPeriodDonut$gender, "\n value: ", campaignPeriodDonut$count)
+campaignPeriodDonut$label <- paste0(campaignPeriodDonut$gender, ": ", campaignPeriodDonut$count)
 
 
 ggplot(campaignPeriodDonut, aes(ymax=ymax, ymin=ymin, xmax=4, xmin=3, fill=gender)) +
@@ -183,144 +194,13 @@ ggplot(campaignPeriodDonut, aes(ymax=ymax, ymin=ymin, xmax=4, xmin=3, fill=gende
   theme(legend.position = "none")
 
 
-#################################
-########## time series ########## 
-#################################
-
-campaignTimeSeries <- campaignPeriodData %>% 
-  group_by(startTime, party) %>%
-  summarise(replyToAbusive = sum(replyToAbusive)) 
-
-topParties <- campaignTimeSeries %>% 
-  group_by(party) %>%
-  summarise(count = sum(replyToAbusive)) %>%
-  arrange(desc(count)) %>%
-  head(5)
-
-campaignTimeSeries <- campaignTimeSeries %>% 
-  filter(party %in% topParties$party) %>%
-  mutate(
-    fill = case_when(
-      party == "Conservative Party" ~ "#0087DC",
-      party == "Labour Party" ~ "#DC241f",
-      party == "Liberal Democrats" ~ "#FDBB30",
-      party == "Scottish National Party" ~ "#FFFF00",
-      party == "Independent" ~ "#DDDDDD",
-      party == "Democratic Unionist Party" ~ "#D46A4C",
-      party == "The Brexit Party" ~ "#12B6CF",
-      TRUE ~ "#cccccc",
-    )
-  )
-
-timeSeriesColours <- campaignTimeSeries %>% 
-  group_by(party) %>%
-  summarise(count = sum(replyToAbusive), fill = first(fill)) %>%
-  arrange(desc(count))
-
 # sort parties for each date
-campaignTimeSeries <- campaignTimeSeries[
-  order(
-    campaignTimeSeries$startTime, 
-    match(campaignTimeSeries$party, topParties$party)
-  ),
-]
-
-
-# plotly
-campaignTimeSeries %>% 
-  ungroup() %>%
-  plot_ly(x = ~ startTime) %>% 
-  add_lines(
-    y = ~ replyToAbusive, 
-    color = ~ factor(party)
-  ) %>%
-  layout(
-    xaxis = list(
-      title = "Date"
-    ), 
-    yaxis = list(
-      title = "Number of abusive tweets received"
-    ))
-
-# highcharter
-hchartTS <- campaignTimeSeries %>%
-  hchart(
-    type = "line",
-    hcaes(x = startTime, y = replyToAbusive, group = factor(party)),
-    marker=list(symbol='circle', radius=2)
-  ) %>%
-  hc_xAxis(
-    title = list(text = "Date")
-  ) %>%
-  hc_yAxis(
-    title = list(text = "Number of abusive tweets received")
-  )
-
-for (row in 1:nrow(timeSeriesColours)) {
-  hchartTS <- hchartTS %>% 
-    hc_add_series(campaignTimeSeries, type="line", color=timeSeriesColours[row,]$fill, zIndex=0)
-}
-
-
-
-
-
-hchartTS <- highchart() %>%
-  hc_xAxis(
-    title = list(text = "Date"),
-    dateTimeLabelFormats = list(day = '%d %b'), 
-    type = "datetime",
-    plotLines = list(
-      list(
-        label = list(text = "TV Event (ITV)"),
-        color = "#E8E8E8",
-        width = 1,
-        value = datetime_to_timestamp(as.Date("2019-11-19"))
-      ),
-      list(
-        label = list(text = "TV Event (BBC)"),
-        color = "#E8E8E8",
-        width = 1,
-        value = datetime_to_timestamp(as.Date("2019-11-22"))
-      ),
-      list(
-        label = list(text = "TV Event (Channel 4)"),
-        color = "#E8E8E8",
-        width = 1,
-        value = datetime_to_timestamp(as.Date("2019-11-28"))
-      ),
-      list(
-        label = list(text = "TV Event (BBC)"),
-        color = "#E8E8E8",
-        width = 1,
-        value = datetime_to_timestamp(as.Date("2019-12-06"))
-      ),
-      list(
-        label = list(text = "Election"),
-        color = "#E8E8E8",
-        width = 1.5,
-        value = datetime_to_timestamp(as.Date("2019-12-12"))
-      )
-    )
-  ) %>%
-  hc_yAxis(
-    title = list(text = "Number of abusive tweets received")
-  )
-
-for (row in 1:nrow(timeSeriesColours)) {
-  hchartTS <- hchartTS %>% 
-    hc_add_series(
-      data = campaignTimeSeries %>% filter(party == timeSeriesColours[row,]$party), 
-      type="line", 
-      hcaes(x = startTime, y = replyToAbusive),
-      marker = list(symbol='circle', radius=1),
-      name = timeSeriesColours[row,]$party, 
-      color = timeSeriesColours[row,]$fill 
-    )
-}
-
-hchartTS
-
+# campaignTimeSeries <- campaignTimeSeries[
+#   order(
+#     campaignTimeSeries$startTime, 
+#     match(campaignTimeSeries$party, topParties$party)
+#   ),
+# ]
 
 # campaignPeriodDataAnimation <- campaignPeriodData %>%
 #   group_by(startTime, party) %>%
