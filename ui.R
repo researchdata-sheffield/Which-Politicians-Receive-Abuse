@@ -1,3 +1,8 @@
+library(shiny)
+library(shinythemes)
+library(shinydashboard)
+library(shinyjs)
+
 # Header -------------------------------
 header <- dashboardHeader(
   title = span(
@@ -19,7 +24,7 @@ header$children[[3]]$children[[4]] <- headerSubTitle
 sidebar <- dashboardSidebar(
   # initialise shinyjs and scripts ---------------------
   shinyjs::useShinyjs(),
-  tags$head(singleton(tags$script(src = 'events.js'))),
+  tags$script(src = "events.js"),
   
   tags$h3(
     "Make some changes", 
@@ -100,8 +105,8 @@ body <- dashboardBody(
   )
 )
 
-
 appUI <- dashboardPage(
+  title="Which Politicians Receive Abuse? | Dataviz.Shef",
   skin = "black",
   header,
   sidebar,

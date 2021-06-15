@@ -1,10 +1,11 @@
-source('processing.R')
-source('server.R')
-source('ui.R')
+#source('processing.R')
+#source('server.R')
+#source('ui.R')
 
 
 ##################################
 ##### Call shinyApp function #####
 ##################################
-shinyApp(ui = appUI, server = appServer)
+app <- shinyApp(ui = appUI, server = appServer)
 
+runApp(app)

@@ -1,15 +1,11 @@
+library(rsconnect)
 library(tidyverse)
 library(lubridate)
-library(highcharter)
 
 library(ggrepel)
-library(shiny)
-library(shinythemes)
-library(shinydashboard)
 library(leaflet)
 library(htmlwidgets)
-library(shinyjs)
-
+library(highcharter)
 
 ##### Process string/numeric to date #####
 stringToDate <- function(targetString) {
@@ -53,8 +49,6 @@ originData <- originData %>%
     )
   )
   
-
-
 campaignPeriodData <- originData
 
 ### data for options ###

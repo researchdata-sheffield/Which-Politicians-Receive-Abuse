@@ -1,3 +1,7 @@
+library(shiny)
+library(shinyjs)
+
+
 appServer <- function(input, output, session) {
   plotReady <- reactiveValues(ready = FALSE)
   filteredData <- reactiveValues()
@@ -341,7 +345,7 @@ appServer <- function(input, output, session) {
   ########################################
   
   # Value Boxes ------------------------------------
-  output$numOfPoliticians <- renderValueBox({
+  output$numOfPoliticians <- shinydashboard::renderValueBox({
     valueBox(
       calculateValues()[["politicians"]], 
       "Number of politicians", 
@@ -349,14 +353,14 @@ appServer <- function(input, output, session) {
       color = "purple"
     )
   })
-  output$numOfParties <- renderValueBox({
+  output$numOfParties <- shinydashboard::renderValueBox({
     valueBox(
       calculateValues()[["parties"]], 
       "Number of parties", 
       icon = icon("vote-yea")
     )
   })
-  output$totalAbusiveReplies <- renderValueBox({
+  output$totalAbusiveReplies <- shinydashboard::renderValueBox({
     valueBox(
       calculateValues()[["replies"]], 
       "Total abusive replies", 
@@ -364,7 +368,7 @@ appServer <- function(input, output, session) {
       color = "red"
     )
   })
-  output$percentOfAbusiveReplies <- renderValueBox({
+  output$percentOfAbusiveReplies <- shinydashboard::renderValueBox({
     valueBox(
       calculateValues()[["percentage"]],
       "Percentage of abusive replies", 
