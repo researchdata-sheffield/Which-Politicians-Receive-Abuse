@@ -1,18 +1,14 @@
 library(tidyverse)
 library(lubridate)
 library(highcharter)
-# Install devtools in order to install circlepackR
-## install.packages("devtools")
-# For windows, also install Rtools: https://cran.r-project.org/bin/windows/Rtools/
-## devtools::install_github("jeromefroe/circlepackeR")
-library(circlepackeR)
-library(data.tree)
-library(treemap)
+
 library(ggrepel)
 library(shiny)
 library(shinythemes)
 library(shinydashboard)
 library(leaflet)
+library(htmlwidgets)
+library(shinyjs)
 
 
 ##### Process string/numeric to date #####
@@ -31,8 +27,6 @@ stringToDate <- function(targetString) {
   as.Date(newString)
 }
 
-str_replace()
-
 # Read data
 # replyTo = replies received
 # replyToAbusive = abusive tweets received
@@ -44,10 +38,24 @@ originData <- originData %>%
   mutate(startTime = stringToDate(startTime)) %>% 
   mutate(endTime = stringToDate(endTime)) %>%
   replace(is.na(.), "unknown") %>%
-  replace("Sinn F\\u00e9in", "Sinn Féin")
+  replace("Sinn F\\u00e9in", "Sinn Féin") %>%
+  mutate(
+    fill = case_when(
+      party == "Conservative Party" ~ "#0087DC",
+      party == "Labour Party" ~ "#DC241f",
+      party == "Liberal Democrats" ~ "#FDBB30",
+      party == "Scottish National Party" ~ "#FFFF00",
+      party == "Independent" ~ "#DDDDDD",
+      party == "Democratic Unionist Party" ~ "#D46A4C",
+      party == "The Brexit Party" ~ "#12B6CF",
+      party == "Sinn F\\u00e9in" ~ "#326760",
+      TRUE ~ "#cccccc"
+    )
+  )
+  
 
 
-# campaignPeriodData <- originData
+campaignPeriodData <- originData
 
 ### data for options ###
 partyOptions <- pull(distinct(originData, party))

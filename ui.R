@@ -17,6 +17,10 @@ header$children[[3]]$children[[4]] <- headerSubTitle
 
 # Sidebar -------------------------------
 sidebar <- dashboardSidebar(
+  # initialise shinyjs and scripts ---------------------
+  shinyjs::useShinyjs(),
+  tags$head(singleton(tags$script(src = 'events.js'))),
+  
   tags$h3(
     "Make some changes", 
     style = "padding: 0 1.5rem; font-size: 1.7rem; font-weight: bold"
@@ -45,7 +49,8 @@ sidebar <- dashboardSidebar(
     options = list(
       placeholder = 'Select a gender'
     )
-  )
+  ),
+  actionButton("applyFilter", "Apply filter options!")
 )
 
 
@@ -64,7 +69,7 @@ body <- dashboardBody(
     box(
       width = 12, 
       solidHeader = TRUE,
-      title = "Time Series - abusive reply overtime",
+      title = "Time Series - abusive replies overtime",
       highchartOutput(outputId = "timeSeries", height = "500px")
     )
   ),
@@ -75,11 +80,23 @@ body <- dashboardBody(
     ),
     column(
       width = 5,
-      plotOutput(outputId = "donutPlot", height = "200px")
+      plotOutput(outputId = "donutPlot", height = "700px")
     )
   ),
+  # fluidRow(
+  #   column(
+  #     width = 12,
+  #     style = "padding: 1rem 5rem; margin: 2rem 0 2rem 1.5rem; display: flex; justify-content: center; background: white",
+  #     circlepackeROutput(outputId = "circlePlot", height = "600px", width = "600px")
+  #   )
+  # )
   fluidRow(
-    circlepackeROutput(outputId = "circlePlot", height = "500px", width = "100%")
+    box(
+      style = "padding: 1rem; background: white; margin: 2rem auto",
+      width = 12,
+      title = "Treemap! (click to see more details)",
+      highchartOutput(outputId = "treemap", height = "800px")
+    )
   )
 )
 

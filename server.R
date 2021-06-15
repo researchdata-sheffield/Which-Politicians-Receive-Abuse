@@ -1,37 +1,65 @@
 appServer <- function(input, output, session) {
+  plotReady <- reactiveValues(ready = FALSE)
+  filteredData <- reactiveValues()
+  
   #######################################
   ########### Global Reactive ###########
   #######################################
-  filterBeforeDebounce <- reactive({
+  # filteredDataFunction <- eventReactive(input$applyFilter, {
+  #   req(input$dateRange)
+  #   
+  #   data <- originData %>%
+  #     filter(
+  #       between(
+  #         startTime, 
+  #         input$dateRange[1], 
+  #         input$dateRange[2]
+  #       )
+  #     ) 
+  #   
+  #   if(!is.null(input$party)) {
+  #     data <- data %>%
+  #       filter(party %in% input$party)
+  #   }
+  #   
+  #   if(!is.null(input$genders)) {
+  #     data <- data %>%
+  #       filter(gender %in% input$genders)
+  #   }
+  #   data
+  # })
+  
+  observeEvent(input$applyFilter, {
     req(input$dateRange)
     
-    data <- originData %>%
-      filter(
-        between(
-          startTime, 
-          input$dateRange[1], 
-          input$dateRange[2]
-        )
-      ) 
+    shinyjs::html("applyFilter", "Loading, please wait ...")
+    shinyjs::disable("applyFilter")
+    plotReady$ready <- FALSE
+    
+    # filter data
+    filteredData$data <- originData[
+      (originData$startTime >= input$dateRange[1] & 
+         originData$startTime <= input$dateRange[2]
+      ),
+    ]
+
     
     if(!is.null(input$party)) {
-      data <- data %>%
-        filter(party %in% input$party)
+      filteredData$data <- filteredData$data[filteredData$data$party %in% input$party,]
     }
     
     if(!is.null(input$genders)) {
-      data <- data %>%
-        filter(gender %in% input$genders)
+      filteredData$data <- filteredData$data[filteredData$data$gender %in% input$genders,]
     }
-    data
   })
+
   
-  filteredData <- debounce(filterBeforeDebounce, 2000)
+  #filteredData <- debounce(filterBeforeDebounce, 2000)
 
   # Make circular chart -------------------------
-  makeCircularChart <- reactive({
+  makeCircularChart <- eventReactive(filteredData$data, {
     # prepare data
-    campaignPeriodCircular = filteredData() %>% 
+    campaignPeriodCircular = filteredData$data %>% 
       group_by(name) %>% 
       summarise(startTime = first(startTime), 
                 endTime = last(endTime), 
@@ -50,22 +78,6 @@ appServer <- function(input, output, session) {
       rowwise() %>%
       mutate(abuseTotal = log(abuseTotal, 1.01)) %>%
       arrange(name)
-    
-    # Apply party colours
-    campaignPeriodCircular = campaignPeriodCircular %>%
-      mutate(
-        fill = case_when(
-          party == "Conservative Party" ~ "#0087DC",
-          party == "Labour Party" ~ "#DC241f",
-          party == "Liberal Democrats" ~ "#FDBB30",
-          party == "Scottish National Party" ~ "#FFFF00",
-          party == "Independent" ~ "#DDDDDD",
-          party == "Democratic Unionist Party" ~ "#D46A4C",
-          party == "The Brexit Party" ~ "#12B6CF",
-          party == "Sinn F\\u00e9in" ~ "#326760",
-          TRUE ~ "#cccccc"
-        )
-      )
     
     # adapted from https://www.r-graph-gallery.com/296-add-labels-to-circular-barplot.html
     
@@ -96,11 +108,11 @@ appServer <- function(input, output, session) {
       ) +
       coord_polar(start = 0) +
       geom_text(data=campaignPeriodCircular, 
-                aes(x = id, y= abuseTotal + 70, label = name, hjust = hjust), 
+                aes(x = id, y= abuseTotal + 80, label = name, hjust = hjust), 
                 color="black", 
                 fontface="bold",
-                alpha=0.6, 
-                size=2.8, 
+                alpha=0.7, 
+                size=4, 
                 angle = campaignPeriodCircular$angle, 
                 inherit.aes = FALSE ) + 
       labs(
@@ -116,15 +128,14 @@ appServer <- function(input, output, session) {
   
   
   # Make circle chart -----------------------------------
-  makeCircleChart <- reactive({
-    campaignPeriodCircle = filteredData() %>% 
+  makeCircleChart <- eventReactive(filteredData$data, {
+    campaignPeriodCircle = filteredData$data %>% 
       group_by(name) %>% 
       summarise(startTime = first(startTime), 
                 endTime = last(endTime), 
                 across(where(is.character), ~first(.x)),
                 across(where(is.numeric), ~sum(.x))
-      ) %>% 
-      mutate(abuseTotal = abuseSexist + abuseRacist + abusePolitical)
+      )
     
     if(count(campaignPeriodCircle) > 1000) {
       campaignPeriodCircle = campaignPeriodCircle %>% filter(replyToAbusive > 400)
@@ -143,8 +154,8 @@ appServer <- function(input, output, session) {
   
   
   # Make donut chart ------------------------------------
-  makeDonutChart <- reactive({
-    campaignPeriodDonut = filteredData() %>%
+  makeDonutChart <- eventReactive(filteredData$data, {
+    campaignPeriodDonut = filteredData$data %>%
       select(name, gender) %>%
       replace(is.na(.), "unknown") %>%
       distinct() %>%
@@ -163,7 +174,7 @@ appServer <- function(input, output, session) {
     
     p = ggplot(campaignPeriodDonut, aes(ymax=ymax, ymin=ymin, xmax=4, xmin=3, fill=gender)) +
       geom_rect() +
-      geom_label_repel( x=3.5, aes(y=labelPosition, label=label), size=5) +
+      geom_label_repel(x=3.5, aes(y=labelPosition, label=label), size=5) +
       scale_fill_brewer(palette=4) +
       coord_polar(theta="y") +
       xlim(c(0.5, 4)) +
@@ -175,23 +186,10 @@ appServer <- function(input, output, session) {
   
   
   # Make time series ------------------------------------
-  makeTimeSeries <- reactive({
-    campaignTimeSeries = filteredData() %>%
+  makeTimeSeries <- eventReactive(filteredData$data, {
+    campaignTimeSeries = filteredData$data %>%
       group_by(startTime, party) %>%
-      summarise(replyToAbusive = sum(replyToAbusive), .groups = "keep") %>%
-      mutate(
-        fill = case_when(
-          party == "Conservative Party" ~ "#0087DC",
-          party == "Labour Party" ~ "#DC241f",
-          party == "Liberal Democrats" ~ "#FDBB30",
-          party == "Scottish National Party" ~ "#FFFF00",
-          party == "Independent" ~ "#DDDDDD",
-          party == "Democratic Unionist Party" ~ "#D46A4C",
-          party == "The Brexit Party" ~ "#12B6CF",
-          party == "Sinn F\\u00e9in" ~ "#326760",
-          TRUE ~ "#cccccc"
-        )
-      )
+      summarise(replyToAbusive = sum(replyToAbusive), fill = fill, .groups = "keep")
     
     timeSeriesColours = campaignTimeSeries %>% 
       group_by(party) %>%
@@ -257,6 +255,85 @@ appServer <- function(input, output, session) {
   })
   
   
+  # Make treemap ---------------------------------------
+  makeTreemap <- eventReactive(filteredData$data, {
+    levelOptions <- list(
+      list(
+        level = 1,
+        borderWidth = 0.5,
+        borderColor = "transparent",
+        dataLabels = list(
+          enabled = TRUE,
+          align = "left",
+          verticalAlign = "top",
+          style = list(fontSize = "12px", textOutline = FALSE, color = "white")
+        )
+      ),
+      list(
+        level = 2,
+        borderWidth = 0.3,
+        borderColor = "transparent",
+        colorVariation = list(key = "brightness", to = 0.2),
+        dataLabels = list(enabled = FALSE),
+        style = list(fontSize = "8px", textOutline = FALSE, color = "white")
+      )
+    )
+    
+    campaignHierarchical = filteredData$data %>%
+      select(name, party, replyToAbusive) %>%
+      group_by(name, party) %>%
+      summarise(replyToAbusive = sum(replyToAbusive), .groups = "keep")
+    
+    # colours
+    cols = filteredData$data %>% 
+      group_by(party) %>%
+      summarise(count = sum(replyToAbusive), fill = fill, .groups = "keep") %>%
+      unique() %>%
+      arrange(desc(count))
+    
+    
+    p = hchart(
+      data_to_hierarchical(
+        campaignHierarchical, 
+        c(party, name), 
+        replyToAbusive, 
+        colors = cols$fill
+      ),
+      type = "treemap",
+      levelIsConstant = FALSE,
+      allowDrillToNode = TRUE,
+      levels = levelOptions,
+      tooltip = list(valueDecimals = FALSE)
+    ) %>% 
+      hc_chart(
+        style = list()
+      ) %>% 
+      hc_size(height = 800)
+    
+    # Change loading button back to default
+    plotReady$ready <- TRUE
+    
+    if (plotReady$ready) {
+      shinyjs::html("applyFilter", "Apply Filter Options!")
+      shinyjs::enable("applyFilter")
+    }
+    
+    return(p)
+  })
+  
+  calculateValues <- eventReactive(filteredData$data, {
+    valueList = list()
+    
+    valueList[["politicians"]] = length(pull(distinct(filteredData$data, name)))
+    valueList[["parties"]] = length(pull(distinct(filteredData$data, party)))
+    valueList[["replies"]] = sum(filteredData$data$replyToAbusive)
+    valueList[["percentage"]] = round(
+      sum(filteredData$data$replyToAbusive)/sum(filteredData$data$replyTo)*100, 
+      digits = 2
+    )
+    
+    return(valueList)
+  })
   
   
   ########################################
@@ -266,7 +343,7 @@ appServer <- function(input, output, session) {
   # Value Boxes ------------------------------------
   output$numOfPoliticians <- renderValueBox({
     valueBox(
-      length(pull(distinct(filteredData(), name))), 
+      calculateValues()[["politicians"]], 
       "Number of politicians", 
       icon = icon("user-friends"),
       color = "purple"
@@ -274,14 +351,14 @@ appServer <- function(input, output, session) {
   })
   output$numOfParties <- renderValueBox({
     valueBox(
-      length(pull(distinct(filteredData(), party))), 
+      calculateValues()[["parties"]], 
       "Number of parties", 
       icon = icon("vote-yea")
     )
   })
   output$totalAbusiveReplies <- renderValueBox({
     valueBox(
-      sum(filteredData()$replyToAbusive), 
+      calculateValues()[["replies"]], 
       "Total abusive replies", 
       icon = icon("angry"),
       color = "red"
@@ -289,16 +366,12 @@ appServer <- function(input, output, session) {
   })
   output$percentOfAbusiveReplies <- renderValueBox({
     valueBox(
-      round(
-        sum(filteredData()$replyToAbusive)/sum(filteredData()$replyTo)*100, 
-        digits = 2
-      ),
+      calculateValues()[["percentage"]],
       "Percentage of abusive replies", 
       icon = icon("percentage"),
       color = "yellow"
     )
   })
-  
   
   ####### Time Series #######
   output$timeSeries <- renderHighchart({
@@ -309,8 +382,11 @@ appServer <- function(input, output, session) {
     makeCircularChart()
   })
 
-  output$circlePlot <- renderCirclepackeR({
-    makeCircleChart()
+  # output$circlePlot <- renderCirclepackeR({
+  #   makeCircleChart()
+  # })
+  output$treemap <- renderHighchart({
+    makeTreemap()
   })
   
   output$donutPlot <- renderPlot({
