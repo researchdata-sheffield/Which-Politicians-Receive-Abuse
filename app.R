@@ -1,8 +1,3 @@
-#source('processing.R')
-#source('server.R')
-#source('ui.R')
-
-
 ##################################
 ##### Call shinyApp function #####
 ##################################
