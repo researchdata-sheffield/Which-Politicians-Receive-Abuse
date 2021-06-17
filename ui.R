@@ -1,6 +1,6 @@
 library(shinythemes)
 library(shinydashboard)
-
+library(htmlwidgets)
 
 # Header -------------------------------
 header <- dashboardHeader(
@@ -23,6 +23,7 @@ header$children[[3]]$children[[4]] <- headerSubTitle
 sidebar <- dashboardSidebar(
   # initialise shinyjs and scripts ---------------------
   shinyjs::useShinyjs(),
+  tags$head(includeHTML(("www/google-analytics.html"))),
   tags$script(src = "events.js"),
   
   tags$h3(
@@ -33,7 +34,7 @@ sidebar <- dashboardSidebar(
   dateRangeInput(
     'dateRange',
     label = paste('Date range'),
-    start = "2019-11-03", end = "2019-12-14",
+    start = "2019-11-17", end = "2019-12-14",
     min = "2019-11-03", max = "2019-12-14",
     separator = " to ", format = "dd/mm/yyyy",
     startview = 'month', weekstart = 1
@@ -87,10 +88,12 @@ body <- dashboardBody(
       fluidRow(
         box(
           width = 12,
+          solidHeader = TRUE,
           highchartOutput(outputId = "barChart", height = "400px")
         ),
         box(
           width = 12,
+          solidHeader = TRUE,
           plotOutput(outputId = "donutPlot", height = "400px")
         )
       )
@@ -107,6 +110,7 @@ body <- dashboardBody(
     box(
       style = "padding: 1rem; background: white; margin: 2rem auto",
       width = 12,
+      solidHeader = TRUE,
       title = "Treemap - abusive tweets received in total (click to see more details)",
       highchartOutput(outputId = "treemap", height = "800px")
     )

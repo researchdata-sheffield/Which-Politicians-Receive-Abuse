@@ -1,0 +1,31 @@
+<!-- Global site tag (gtag.js) - Google Analytics -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-V4TQHZ5CTH"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-V4TQHZ5CTH');
+  
+  // fix ga undefined error
+  
+  $(document).on('change', 'select', function(e) {
+    try {
+      ga('send', 'event', 'widget', 'select data', $(e.currentTarget).val());
+    } catch(err) {
+      console.log(err);
+    }
+
+  });
+
+  $(document).on('click', 'button', function() {
+    try {
+      ga('send', 'event', 'button', 'update plot');
+    } catch(err) {
+      console.log(err);
+    }
+  });
+
+
+
+</script>
