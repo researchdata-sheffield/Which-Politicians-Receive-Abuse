@@ -197,13 +197,13 @@ appServer <- function(input, output, session) {
   makeTimeSeries <- eventReactive(filteredData$data, {
     campaignTimeSeries = filteredData$data %>%
       group_by(startTime, party) %>%
-      summarise(replyToAbusive = sum(replyToAbusive), fill = fill, .groups = "keep")
+      summarise(replyToAbusive = sum(replyToAbusive), fill = first(fill), .groups = "keep")
     
     timeSeriesColours = campaignTimeSeries %>% 
       group_by(party) %>%
       summarise(count = sum(replyToAbusive), fill = first(fill)) %>%
       arrange(desc(count)) %>%
-      head(20)
+      head(30)
     
     # create the chart
     hchartTS <- highchart() %>%
@@ -252,7 +252,7 @@ appServer <- function(input, output, session) {
     for (row in 1:nrow(timeSeriesColours)) {
       hchartTS <- hchartTS %>% 
         hc_add_series(
-          data = campaignTimeSeries %>% filter(party == timeSeriesColours[row,]$party), 
+          data = campaignTimeSeries[campaignTimeSeries$party == timeSeriesColours[row, ]$party, ], 
           type="line", 
           hcaes(x = startTime, y = replyToAbusive),
           marker = list(symbol='circle', radius=1),
