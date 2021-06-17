@@ -1,7 +1,6 @@
-library(shiny)
 library(shinythemes)
 library(shinydashboard)
-library(shinyjs)
+
 
 # Header -------------------------------
 header <- dashboardHeader(
@@ -80,12 +79,21 @@ body <- dashboardBody(
   ),
   fluidRow(
     column(
-      width = 7,
-      plotOutput(outputId = "circularPlot", height = "700px")
+      width = 8,
+      plotOutput(outputId = "circularPlot", height = "850px")
     ),
     column(
-      width = 5,
-      plotOutput(outputId = "donutPlot", height = "700px")
+      width = 4,
+      fluidRow(
+        box(
+          width = 12,
+          highchartOutput(outputId = "barChart", height = "400px")
+        ),
+        box(
+          width = 12,
+          plotOutput(outputId = "donutPlot", height = "400px")
+        )
+      )
     )
   ),
   # fluidRow(
@@ -99,7 +107,7 @@ body <- dashboardBody(
     box(
       style = "padding: 1rem; background: white; margin: 2rem auto",
       width = 12,
-      title = "Treemap! (click to see more details)",
+      title = "Treemap - abusive tweets received in total (click to see more details)",
       highchartOutput(outputId = "treemap", height = "800px")
     )
   )

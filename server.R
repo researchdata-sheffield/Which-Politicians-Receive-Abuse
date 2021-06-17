@@ -1,7 +1,3 @@
-library(shiny)
-library(shinyjs)
-
-
 appServer <- function(input, output, session) {
   plotReady <- reactiveValues(ready = FALSE)
   filteredData <- reactiveValues()
@@ -47,7 +43,6 @@ appServer <- function(input, output, session) {
       ),
     ]
 
-    
     if(!is.null(input$party)) {
       filteredData$data <- filteredData$data[filteredData$data$party %in% input$party,]
     }
@@ -70,7 +65,8 @@ appServer <- function(input, output, session) {
                 across(where(is.character), ~first(.x)),
                 across(where(is.numeric), ~sum(.x))
       ) %>% 
-      mutate(abuseTotal = abuseSexist + abuseRacist + abusePolitical)
+      mutate(abuseTotal = abuseSexist + abuseRacist + abusePolitical) %>%
+      filter(abuseTotal != 0)
     
     # get top 20 or less MP
     mpNumber = nrow(campaignPeriodCircular)
@@ -123,8 +119,9 @@ appServer <- function(input, output, session) {
         title = paste0(
           "Top ", 
           mpNumber, 
-          " MP by total number of abuse reply received (calculated from these categories: Sexist, Political, and Racist)"
-        )
+          " MP by total* number of abuse tweets received"
+        ),
+        subtitle = "*Calculated from these categories: Sexist, Political, and Racist."
       )
     
     return(p)
@@ -132,51 +129,58 @@ appServer <- function(input, output, session) {
   
   
   # Make circle chart -----------------------------------
-  makeCircleChart <- eventReactive(filteredData$data, {
-    campaignPeriodCircle = filteredData$data %>% 
-      group_by(name) %>% 
-      summarise(startTime = first(startTime), 
-                endTime = last(endTime), 
-                across(where(is.character), ~first(.x)),
-                across(where(is.numeric), ~sum(.x))
-      )
-    
-    if(count(campaignPeriodCircle) > 1000) {
-      campaignPeriodCircle = campaignPeriodCircle %>% filter(replyToAbusive > 400)
-    }
-    
-    # appened path
-    campaignPeriodCircle$pathString = paste("MP", 
-                                            campaignPeriodCircle$party,
-                                            campaignPeriodCircle$name,
-                                            sep = "/")
-    
-    nodes = as.Node(campaignPeriodCircle)
-    p = circlepackeR(nodes, size = "replyToAbusive", width = "500px", height = "500px")
-    return(p)
-  })
+  # makeCircleChart <- eventReactive(filteredData$data, {
+  #   campaignPeriodCircle = filteredData$data %>% 
+  #     group_by(name) %>% 
+  #     summarise(startTime = first(startTime), 
+  #               endTime = last(endTime), 
+  #               across(where(is.character), ~first(.x)),
+  #               across(where(is.numeric), ~sum(.x))
+  #     )
+  #   
+  #   if(count(campaignPeriodCircle) > 1000) {
+  #     campaignPeriodCircle = campaignPeriodCircle %>% filter(replyToAbusive > 400)
+  #   }
+  #   
+  #   # appened path
+  #   campaignPeriodCircle$pathString = paste("MP", 
+  #                                           campaignPeriodCircle$party,
+  #                                           campaignPeriodCircle$name,
+  #                                           sep = "/")
+  #   
+  #   nodes = as.Node(campaignPeriodCircle)
+  #   p = circlepackeR(nodes, size = "replyToAbusive", width = "500px", height = "500px")
+  #   return(p)
+  # })
   
   
   # Make donut chart ------------------------------------
+  # Adapted from https://www.r-graph-gallery.com/doughnut-plot.html
   makeDonutChart <- eventReactive(filteredData$data, {
-    campaignPeriodDonut = filteredData$data %>%
+    campaignDonut = filteredData$data %>%
       select(name, gender) %>%
       replace(is.na(.), "unknown") %>%
       distinct() %>%
       group_by(gender) %>%
       summarise(count = n())
     
-    campaignPeriodDonut$fraction = campaignPeriodDonut$count / sum(campaignPeriodDonut$count)
+    campaignDonut$fraction = campaignDonut$count / sum(campaignDonut$count)
     
     # Compute the cumulative percentages (top of each rectangle)
-    campaignPeriodDonut$ymax <- cumsum(campaignPeriodDonut$fraction)
-    campaignPeriodDonut$ymin <- c(0, head(campaignPeriodDonut$ymax, n=-1))
+    campaignDonut$ymax <- cumsum(campaignDonut$fraction)
+    campaignDonut$ymin <- c(0, head(campaignDonut$ymax, n=-1))
     
-    campaignPeriodDonut$labelPosition <- (campaignPeriodDonut$ymax + campaignPeriodDonut$ymin) / 2
-    campaignPeriodDonut$label <- paste0(campaignPeriodDonut$gender, ": ", campaignPeriodDonut$count)
+    campaignDonut$labelPosition <- (campaignDonut$ymax + campaignDonut$ymin) / 2
+    campaignDonut$label <- paste0(
+      campaignDonut$gender,
+      "\n count: ", 
+      campaignDonut$count,
+      " | ",
+      round(campaignDonut$fraction*100, 2),
+      " %"
+    )
     
-    
-    p = ggplot(campaignPeriodDonut, aes(ymax=ymax, ymin=ymin, xmax=4, xmin=3, fill=gender)) +
+    p = ggplot(campaignDonut, aes(ymax=ymax, ymin=ymin, xmax=4, xmin=3, fill=gender)) +
       geom_rect() +
       geom_label_repel(x=3.5, aes(y=labelPosition, label=label), size=5) +
       scale_fill_brewer(palette=4) +
@@ -198,8 +202,10 @@ appServer <- function(input, output, session) {
     timeSeriesColours = campaignTimeSeries %>% 
       group_by(party) %>%
       summarise(count = sum(replyToAbusive), fill = first(fill)) %>%
-      arrange(desc(count))
+      arrange(desc(count)) %>%
+      head(20)
     
+    # create the chart
     hchartTS <- highchart() %>%
       hc_xAxis(
         title = list(text = "Date"),
@@ -258,6 +264,39 @@ appServer <- function(input, output, session) {
     return(hchartTS)
   })
   
+
+  # Make bar chart -------------------------------------
+  makeBarChart <- eventReactive(filteredData$data, {
+    p <- filteredData$data %>%
+      group_by(name) %>%
+      summarise(
+        authored = sum(original), 
+        received = sum(replyToAbusive), 
+        party = first(party),
+        fill = first(fill)
+      ) %>%
+      arrange(desc(authored)) %>%
+      head(10) %>%
+      hchart(
+        type = "bar", 
+        hcaes(x = name, y = authored, color = fill)
+      ) %>%
+      hc_xAxis(
+        title = list(text = "Politicians")
+      ) %>%
+      hc_yAxis(
+        title = list(text = "Number of tweets authored")
+      ) %>%
+      hc_tooltip(
+        headerFormat = "<b>{point.key}</b><br>",
+        pointFormat = "Tweets authored: {point.y} <br> Abusive tweets received: {point.received} <br> "
+      ) %>%
+      hc_title(
+        text = "Which politicians tweets the most?"
+      )
+    p
+  })
+  
   
   # Make treemap ---------------------------------------
   makeTreemap <- eventReactive(filteredData$data, {
@@ -291,7 +330,7 @@ appServer <- function(input, output, session) {
     # colours
     cols = filteredData$data %>% 
       group_by(party) %>%
-      summarise(count = sum(replyToAbusive), fill = fill, .groups = "keep") %>%
+      summarise(count = sum(replyToAbusive), fill = first(fill)) %>%
       unique() %>%
       arrange(desc(count))
     
@@ -325,6 +364,7 @@ appServer <- function(input, output, session) {
     return(p)
   })
   
+  # Calculate values for boxes ---------------------------
   calculateValues <- eventReactive(filteredData$data, {
     valueList = list()
     
@@ -338,6 +378,7 @@ appServer <- function(input, output, session) {
     
     return(valueList)
   })
+  
   
   
   ########################################
@@ -395,5 +436,9 @@ appServer <- function(input, output, session) {
   
   output$donutPlot <- renderPlot({
     makeDonutChart()
+  })
+  
+  output$barChart <- renderHighchart({
+    makeBarChart()
   })
 }
