@@ -2,7 +2,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 # Which-Politicians-Receive-Abuse
-This repository contain source code and processed data for the shiny app - [Which Politicians Receive Abuse During 2019 Election Campaign?](https://ylwshef.shinyapps.io/Which-Politicians-Receive-Abuse/). The shiny app is built based on dataset made available by Gorrell, G., Bakir, M., Roberts, I., Greenwood, M., et al. (2020) on [Online Research Data](https://orda.shef.ac.uk) (the University of Sheffield's data repository). You might also be interested in the open access [article](https://doi.org/10.1140/epjds/s13688-020-00236-9)[1] they have published alongside the dataset.
+This repository contain source code and processed data for the shiny app - [Which Politicians Receive Abuse During 2019 Election Campaign?](https://ylwshef.shinyapps.io/Which-Politicians-Receive-Abuse/). The shiny app is built based on the dataset made available by Gorrell, G., Bakir, M., Roberts, I., Greenwood, M., et al. (2020) on [Online Research Data](https://orda.shef.ac.uk) (the University of Sheffield's data repository). You might also be interested in the open access [article](https://doi.org/10.1140/epjds/s13688-020-00236-9)[1] they have published alongside the dataset.
 
 
 ![Screenshot of the app](thumb.png)

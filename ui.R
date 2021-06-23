@@ -55,7 +55,32 @@ sidebar <- dashboardSidebar(
       placeholder = 'Select a gender'
     )
   ),
-  actionButton("applyFilter", "Apply filter options!")
+  actionButton("applyFilter", "Apply filter options!"),
+  tags$h3(
+    "About", 
+    style = "padding: 0 1.5rem; margin: 5rem auto 1rem auto; font-size: 1.7rem; font-weight: bold"
+  ),
+  tags$p(
+    list(
+      "The shiny app is built based on the ",
+      tags$a("dataset", href = "https://doi.org/10.15131/shef.data.12340994"),
+      "made available by Gorrell, G., Bakir, M., Roberts, I., Greenwood, M., et al. (2020) on ",
+      tags$a("Online Research Data", href = "https://orda.shef.ac.uk"),
+      "(the University of Sheffield's data repository). You might also be interested in the open access ",
+      tags$a("article", href = "https://doi.org/10.1140/epjds/s13688-020-00236-9"),
+      "they have published alongside the dataset."
+    ),
+    style = "padding: 0 1.5rem"
+  ),
+  tags$div(
+    list(
+      tags$a(icon("star", "fa-2x"), href = "https://dataviz.shef.ac.uk"),
+      tags$a(icon("github", "fa-2x"), href = "https://github.com/researchdata-sheffield/Which-Politicians-Receive-Abuse"),
+      tags$a(icon("envelope", "fa-2x"), href = "mailto:y.weng@sheffield.ac.uk"),
+      tags$a(icon("slack", "fa-2x"), href = "https://shef-dataviz.slack.com/archives/DRF6V81L0")
+    ),
+    style = "margin-top: 5rem; padding: 0 1.5rem; display: flex; flex-wrap: wrap; justify-content: space-evenly"
+  )
 )
 
 
