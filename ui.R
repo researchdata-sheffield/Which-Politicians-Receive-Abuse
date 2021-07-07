@@ -74,10 +74,10 @@ sidebar <- dashboardSidebar(
   ),
   tags$div(
     list(
-      tags$a(icon("star", "fa-2x"), href = "https://dataviz.shef.ac.uk"),
-      tags$a(icon("github", "fa-2x"), href = "https://github.com/researchdata-sheffield/Which-Politicians-Receive-Abuse"),
-      tags$a(icon("envelope", "fa-2x"), href = "mailto:y.weng@sheffield.ac.uk"),
-      tags$a(icon("slack", "fa-2x"), href = "https://shef-dataviz.slack.com/archives/DRF6V81L0")
+      tags$a(icon("star", "fa-2x"), href = "https://dataviz.shef.ac.uk", target = "_blank"),
+      tags$a(icon("github", "fa-2x"), href = "https://github.com/researchdata-sheffield/Which-Politicians-Receive-Abuse", target = "_blank"),
+      tags$a(icon("envelope", "fa-2x"), href = "mailto:y.weng@sheffield.ac.uk", target = "_blank"),
+      tags$a(icon("slack", "fa-2x"), href = "https://shef-dataviz.slack.com/archives/DRF6V81L0", target = "_blank")
     ),
     style = "margin-top: 5rem; padding: 0 1.5rem; display: flex; flex-wrap: wrap; justify-content: space-evenly"
   )
